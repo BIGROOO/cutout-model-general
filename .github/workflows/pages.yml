@@ -1,4 +1,4 @@
-name: Publish model
+name: Publish Cutout
 on:
   push:
     branches: [master]
@@ -7,6 +7,9 @@ permissions:
   contents: read
   pages: write
   id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -16,14 +19,20 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: actions/configure-pages@v5
-      - name: Download and verify original model
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Prepare browser-compatible model
         run: |
           mkdir -p site/models
           cp LICENSE site/LICENSE
-          curl --fail --location --retry 5 --output site/models/birefnet-general.onnx https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-epoch_244.onnx
-          echo '7a35a0141cbbc80de11d9c9a28f52697  site/models/birefnet-general.onnx' | md5sum --check
-          sha256sum site/models/birefnet-general.onnx | tee site/model.sha256
-          echo '<h1>Cutout BiRefNet general model</h1><a href="https://bigrooo.github.io/cutout-web/">Open Cutout</a>' > site/index.html
+          curl --fail --location --retry 5 --output original.onnx https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-epoch_244.onnx
+          echo '58f621f00f5d756097615970a88a791584600dcf7c45b18a0a6267535a1ebd3c  original.onnx' | sha256sum --check
+          pip install onnx==1.19.0
+          python prepare_browser_model.py original.onnx site/models/birefnet-general-web.onnx
+          echo 'd687fbd4566aa569b982058cbabd96198d319d060c92ffc30cf20fb803e58f33  site/models/birefnet-general-web.onnx' | sha256sum --check
+          sha256sum site/models/birefnet-general-web.onnx > site/model.sha256
+          echo '<h1>Cutout BiRefNet general</h1><a href="https://bigrooo.github.io/cutout-web/">Open Cutout</a>' > site/index.html
       - uses: actions/upload-pages-artifact@v4
         with:
           path: site
